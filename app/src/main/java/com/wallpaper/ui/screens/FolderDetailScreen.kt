@@ -1,5 +1,6 @@
 package com.wallpaper.ui.screens
 
+import android.app.Activity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -17,9 +18,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.wallpaper.R
+import com.wallpaper.util.ImageCacheHelper
 import com.wallpaper.data.database.WallpaperDatabase
 import com.wallpaper.data.database.entities.WallpaperImage
 import com.wallpaper.data.repository.WallpaperImageRepository
@@ -46,6 +51,31 @@ fun FolderDetailScreen(
     val context = LocalContext.current
     val images by viewModel.images.collectAsState()
     val folder by viewModel.folder.collectAsState()
+    var imageRefreshKey by remember { mutableStateOf(0) }
+    
+    // Surveiller onResume pour rafraîchir les images après uCrop
+    val activity = context as? Activity
+    DisposableEffect(activity) {
+        if (activity is LifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    // Quand on revient sur l'écran, rafraîchir les images
+                    // Cela permet de voir les images éditées immédiatement
+                    imageRefreshKey++
+                    // Invalider le cache Coil pour toutes les images
+                    images.forEach { image ->
+                        ImageCacheHelper.invalidateCache(context, image.filePath)
+                    }
+                }
+            }
+            activity.lifecycle.addObserver(observer)
+            onDispose {
+                activity.lifecycle.removeObserver(observer)
+            }
+        } else {
+            onDispose { }
+        }
+    }
     
     val pickImage = ImagePicker.rememberImagePicker { imagePath ->
         CoroutineScope(Dispatchers.IO).launch {
@@ -104,11 +134,12 @@ fun FolderDetailScreen(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                items(images) { image ->
+                items(images, key = { it.id }) { image ->
                     ImageItem(
                         image = image,
                         onClick = { onNavigateToEditImage(image.id, image.filePath) },
-                        onDelete = { viewModel.deleteImage(image) }
+                        onDelete = { viewModel.deleteImage(image) },
+                        refreshKey = imageRefreshKey
                     )
                 }
             }
@@ -120,10 +151,32 @@ fun FolderDetailScreen(
 fun ImageItem(
     image: WallpaperImage,
     onClick: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    refreshKey: Int = 0
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     val file = File(image.filePath)
+    val context = LocalContext.current
+    
+    // Utiliser refreshKey pour forcer le rechargement de l'image
+    // Invalider le cache quand refreshKey change
+    LaunchedEffect(refreshKey) {
+        if (refreshKey > 0) {
+            ImageCacheHelper.invalidateCache(context, image.filePath)
+        }
+    }
+    
+    // Créer un Uri avec un paramètre de requête pour forcer le rechargement quand refreshKey change
+    val imageUri = remember(refreshKey, image.filePath) {
+        if (refreshKey > 0 && file.exists()) {
+            // Ajouter un timestamp au URI pour forcer le rechargement
+            android.net.Uri.fromFile(file).buildUpon()
+                .appendQueryParameter("t", refreshKey.toString())
+                .build()
+        } else {
+            android.net.Uri.fromFile(file)
+        }
+    }
     
     Card(
         modifier = Modifier
@@ -132,7 +185,7 @@ fun ImageItem(
     ) {
         Box {
             AsyncImage(
-                model = file,
+                model = imageUri,
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
