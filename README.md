@@ -134,10 +134,67 @@ cd wallpaper
 
 ## Développement
 
+### Prérequis
+
+- Android Studio Hedgehog ou plus récent
+- JDK 17
+- Android SDK avec API 26 (Android 8.0) minimum
+- Target SDK : API 34 (Android 14)
+
+### Installation
+
+1. Cloner le repository
+```bash
+git clone <repository-url>
+cd wallpaper
+```
+
+2. Ouvrir le projet dans Android Studio
+   - **File > Open** > Sélectionner le dossier `wallpaper`
+   - Attendre la synchronisation Gradle
+
+3. Configurer un émulateur Android (voir [EMULATEUR_ET_DEBUG.md](EMULATEUR_ET_DEBUG.md))
+
 ### Build
 
 ```bash
+# Mode debug
 ./gradlew assembleDebug
+
+# Mode release
+./gradlew assembleRelease
+```
+
+### Installation sur Émulateur/Appareil
+
+```bash
+# Lancer l'émulateur
+./run_emulator.sh
+
+# Compiler et installer l'APK
+./build_and_install.sh debug
+
+# Ou en une seule commande (dans Android Studio)
+# Cliquer sur le bouton "Run" (▶) ou "Debug" (🐛)
+```
+
+### Débogage
+
+#### Avec Android Studio (Recommandé)
+
+1. **Lancer en mode debug** : Cliquer sur le bouton Debug (🐛) ou **⇧⌘D**
+2. **Placer des breakpoints** : Cliquer dans la marge à gauche du numéro de ligne
+3. **Voir les logs** : Ouvrir l'onglet **Logcat** en bas de l'écran
+4. **Hot Reload** : Modifier le code Compose et appuyer sur **⌘⇧R**
+
+#### Avec les Scripts
+
+```bash
+# Lancer l'application avec logs en temps réel
+./debug.sh
+
+# Voir les logs uniquement
+adb logcat | grep -E "WallPapier|MainActivity"
 ```
 
 ### Tests
@@ -151,6 +208,10 @@ cd wallpaper
 ```bash
 ./gradlew lint
 ```
+
+### Guide Complet Émulateur et Débogage
+
+Pour un guide détaillé sur l'installation de l'émulateur et le débogage en direct, voir [EMULATEUR_ET_DEBUG.md](EMULATEUR_ET_DEBUG.md).
 
 ## Notes Techniques
 
