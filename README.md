@@ -1,4 +1,4 @@
-# Wallpaper - Gestionnaire de Fonds d'Écran Android
+# WallPapier - Gestionnaire de Fonds d'Écran Android
 
 Une application Android avancée pour gérer et changer automatiquement les fonds d'écran avec des fonctionnalités de récurrence, d'édition d'images et de gestes tactiles.
 

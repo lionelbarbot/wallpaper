@@ -232,5 +232,3 @@ app/
 - **Batterie** : Minimiser l'impact avec des intervalles raisonnables et des optimisations
 
 ## Tests à Prévoir
-
-- Tests unitaires pour les repositories et la logique métier
