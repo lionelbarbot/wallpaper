@@ -56,5 +56,14 @@
     
     <!-- Accessibility -->
     <string name="accessibility_service_description">Service pour détecter les gestes sur l\'écran d\'accueil (double tap et quadruple tap)</string>
+    <string name="accessibility_service_title">Service d\'Accessibilité</string>
+    <string name="accessibility_service_enabled">Service activé</string>
+    <string name="accessibility_service_disabled">Service désactivé</string>
+    <string name="accessibility_service_explanation">Activez le service d\'accessibilité pour utiliser les gestes tactiles (double tap pour image suivante, quadruple tap pour répertoire suivant).</string>
+    <string name="open_accessibility_settings">Ouvrir les paramètres d\'accessibilité</string>
+    <string name="accessibility_required_title">Service d\'Accessibilité Requis</string>
+    <string name="accessibility_required_message">Pour utiliser les gestes tactiles, veuillez activer le service d\'accessibilité WallPapier dans les paramètres système.</string>
+    <string name="enable_now">Activer maintenant</string>
+    <string name="later">Plus tard</string>
 </resources>
 
