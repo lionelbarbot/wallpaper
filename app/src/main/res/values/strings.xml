@@ -26,13 +26,22 @@
     <string name="target_screens">Écrans ciblés</string>
     <string name="lock_screen">Écran de verrouillage</string>
     <string name="home_screen">Écran d\'accueil</string>
-    <string name="both_screens">Les deux</string>
+    <string name="both_screens">Accueil + Verrouillage</string>
     
     <!-- Recurrence types -->
     <string name="recurrence_daily">Quotidienne</string>
     <string name="recurrence_weekly">Hebdomadaire</string>
     <string name="recurrence_monthly">Mensuelle</string>
     <string name="recurrence_none">Aucune</string>
+    <string name="select_days">Sélectionner les jours</string>
+    <string name="monday">Lundi</string>
+    <string name="tuesday">Mardi</string>
+    <string name="wednesday">Mercredi</string>
+    <string name="thursday">Jeudi</string>
+    <string name="friday">Vendredi</string>
+    <string name="saturday">Samedi</string>
+    <string name="sunday">Dimanche</string>
+    <string name="days_abbreviation">L M M J V S D</string>
     
     <!-- Status -->
     <string name="active">Actif</string>
@@ -47,7 +56,9 @@
     
     <!-- Settings -->
     <string name="rotation_interval">Intervalle de rotation (minutes)</string>
-    <string name="rotation_interval_hint">Ex: 60</string>
+    <string name="rotation_interval_hint">Ex: 60 (vide = pas de rotation automatique)</string>
+    <string name="change_on_unlock">Changer au déverrouillage</string>
+    <string name="change_on_unlock_description">L\'image changera automatiquement lorsque vous déverrouillez l\'appareil</string>
     
     <!-- Errors -->
     <string name="error_loading_image">Erreur lors du chargement de l\'image</string>

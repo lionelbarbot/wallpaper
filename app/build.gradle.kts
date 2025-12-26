@@ -1,8 +1,8 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("kotlin-kapt")
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.20"
+    id("com.google.devtools.ksp") version "1.9.22-1.0.16"
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.22"
 }
 
 android {
@@ -46,7 +46,7 @@ android {
     }
     
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.3"
+        kotlinCompilerExtensionVersion = "1.5.8"
     }
     
     packaging {
@@ -81,7 +81,7 @@ dependencies {
     val roomVersion = "2.6.1"
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
-    kapt("androidx.room:room-compiler:$roomVersion")
+    ksp("androidx.room:room-compiler:$roomVersion")
     
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.5.0")
@@ -96,7 +96,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     
     // Date/Time handling
-    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.5.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.0")
     
     // Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")

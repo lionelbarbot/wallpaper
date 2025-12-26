@@ -230,5 +230,3 @@ app/
 - **WorkManager** : Pour les tâches périodiques, utiliser PeriodicWorkRequest avec contraintes
 - **Performance** : Optimiser le chargement des images avec Coil et le caching
 - **Batterie** : Minimiser l'impact avec des intervalles raisonnables et des optimisations
-
-## Tests à Prévoir

@@ -22,19 +22,14 @@ class RecurrenceCalculator {
         val currentDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
         val currentHour = currentDateTime.hour
         
-        return when (rule.type) {
-            RecurrenceType.DAILY -> {
-                // Vérifier les heures si définies
-                if (rule.startHour != null && rule.endHour != null) {
-                    currentHour >= rule.startHour && currentHour < rule.endHour
-                } else {
-                    true
-                }
-            }
-            RecurrenceType.WEEKLY -> {
+        // Si des jours spécifiques sont sélectionnés, utiliser la logique hebdomadaire
+        val hasSpecificDays = rule.daysOfWeek.isNotEmpty()
+        
+        return when {
+            hasSpecificDays -> {
                 // Convertir Calendar.DAY_OF_WEEK (1=Sunday, 2=Monday...) vers notre format (1=Monday, 7=Sunday)
                 val dayOfWeek = if (currentDayOfWeek == Calendar.SUNDAY) 7 else currentDayOfWeek - 1
-                val dayMatches = rule.daysOfWeek.isEmpty() || rule.daysOfWeek.contains(dayOfWeek)
+                val dayMatches = rule.daysOfWeek.contains(dayOfWeek)
                 
                 if (dayMatches) {
                     // Vérifier les heures si définies
@@ -47,7 +42,23 @@ class RecurrenceCalculator {
                     false
                 }
             }
-            RecurrenceType.MONTHLY -> {
+            rule.type == RecurrenceType.DAILY -> {
+                // Vérifier les heures si définies
+                if (rule.startHour != null && rule.endHour != null) {
+                    currentHour >= rule.startHour && currentHour < rule.endHour
+                } else {
+                    true
+                }
+            }
+            rule.type == RecurrenceType.WEEKLY -> {
+                // Tous les jours de la semaine (pas de jours spécifiques)
+                if (rule.startHour != null && rule.endHour != null) {
+                    currentHour >= rule.startHour && currentHour < rule.endHour
+                } else {
+                    true
+                }
+            }
+            rule.type == RecurrenceType.MONTHLY -> {
                 val dayMatches = rule.dayOfMonth == null || rule.dayOfMonth == currentDateTime.dayOfMonth
                 
                 if (dayMatches) {
@@ -61,7 +72,7 @@ class RecurrenceCalculator {
                     false
                 }
             }
-            RecurrenceType.NONE -> false
+            else -> false
         }
     }
 }

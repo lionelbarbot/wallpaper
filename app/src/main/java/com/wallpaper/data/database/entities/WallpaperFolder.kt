@@ -14,6 +14,8 @@ data class WallpaperFolder(
     val recurrenceRule: String, // JSON string pour les détails de récurrence (jours de la semaine, heures, etc.)
     val targetScreen: TargetScreen,
     val isActive: Boolean = false,
+    val rotationIntervalMinutes: Int? = null, // Intervalle de rotation en minutes (null = pas de rotation automatique)
+    val changeOnUnlock: Boolean = false, // Changer l'image au déverrouillage
     val createdAt: Long = System.currentTimeMillis()
 )
 

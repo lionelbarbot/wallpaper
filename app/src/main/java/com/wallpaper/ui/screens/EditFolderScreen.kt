@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -29,17 +30,26 @@ fun EditFolderScreen(
 ) {
     val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf("") }
-    var recurrenceType by remember { mutableStateOf(RecurrenceType.NONE) }
+    var selectedDays by remember { mutableStateOf(setOf<Int>()) } // 1-7 (Monday-Sunday)
     var targetScreen by remember { mutableStateOf(TargetScreen.BOTH) }
+    var rotationInterval by remember { mutableStateOf("") }
+    var changeOnUnlock by remember { mutableStateOf(false) }
     
     LaunchedEffect(folderId) {
         if (folderId != null) {
             val folder = viewModel.getFolder()
             folder?.let {
                 name = it.name
-                recurrenceType = it.recurrenceType
                 targetScreen = it.targetScreen
+                rotationInterval = it.rotationIntervalMinutes?.toString() ?: ""
+                changeOnUnlock = it.changeOnUnlock
+                // Charger les jours sélectionnés depuis la règle de récurrence
+                val rule = RecurrenceRule.fromJson(it.recurrenceRule)
+                selectedDays = rule?.daysOfWeek?.toSet() ?: emptySet()
             }
+        } else {
+            // Par défaut, sélectionner tous les jours pour un nouveau répertoire
+            selectedDays = setOf(1, 2, 3, 4, 5, 6, 7)
         }
     }
     
@@ -81,24 +91,54 @@ fun EditFolderScreen(
                 style = MaterialTheme.typography.titleMedium
             )
             
-            RecurrenceType.values().forEach { type ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = recurrenceType == type,
-                        onClick = { recurrenceType = type }
-                    )
-                    Text(
-                        text = when (type) {
-                            RecurrenceType.NONE -> stringResource(R.string.recurrence_none)
-                            RecurrenceType.DAILY -> stringResource(R.string.recurrence_daily)
-                            RecurrenceType.WEEKLY -> stringResource(R.string.recurrence_weekly)
-                            RecurrenceType.MONTHLY -> stringResource(R.string.recurrence_monthly)
-                        },
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
+            // Sélecteur de jours de la semaine
+            Text(
+                text = stringResource(R.string.select_days),
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            
+            val daysOfWeek = listOf(
+                1 to stringResource(R.string.monday),
+                2 to stringResource(R.string.tuesday),
+                3 to stringResource(R.string.wednesday),
+                4 to stringResource(R.string.thursday),
+                5 to stringResource(R.string.friday),
+                6 to stringResource(R.string.saturday),
+                7 to stringResource(R.string.sunday)
+            )
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                daysOfWeek.forEach { (dayNumber, dayName) ->
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(4.dp)
+                    ) {
+                        FilterChip(
+                            selected = selectedDays.contains(dayNumber),
+                            onClick = {
+                                selectedDays = if (selectedDays.contains(dayNumber)) {
+                                    selectedDays - dayNumber
+                                } else {
+                                    selectedDays + dayNumber
+                                }
+                            },
+                            label = { 
+                                Text(
+                                    text = dayName.take(1).uppercase(),
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        )
+                        Text(
+                            text = dayName,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
                 }
             }
             
@@ -109,12 +149,15 @@ fun EditFolderScreen(
             
             TargetScreen.values().forEach { screen ->
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     RadioButton(
                         selected = targetScreen == screen,
-                        onClick = { targetScreen = screen }
+                        onClick = { targetScreen = screen },
+                        modifier = Modifier.size(20.dp)
                     )
                     Text(
                         text = when (screen) {
@@ -122,28 +165,85 @@ fun EditFolderScreen(
                             TargetScreen.HOME_SCREEN -> stringResource(R.string.home_screen)
                             TargetScreen.BOTH -> stringResource(R.string.both_screens)
                         },
-                        modifier = Modifier.padding(start = 8.dp)
+                        modifier = Modifier.padding(start = 8.dp),
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
+            }
+            
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            
+            // Intervalle de rotation
+            Text(
+                text = stringResource(R.string.rotation_interval),
+                style = MaterialTheme.typography.titleMedium
+            )
+            
+            OutlinedTextField(
+                value = rotationInterval,
+                onValueChange = { rotationInterval = it },
+                label = { Text(stringResource(R.string.rotation_interval)) },
+                placeholder = { Text(stringResource(R.string.rotation_interval_hint)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+            
+            // Option changement au déverrouillage
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.change_on_unlock),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = stringResource(R.string.change_on_unlock_description),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = changeOnUnlock,
+                    onCheckedChange = { changeOnUnlock = it }
+                )
             }
             
             Spacer(modifier = Modifier.weight(1f))
             
             Button(
                 onClick = {
+                    if (selectedDays.isEmpty()) {
+                        // Ne pas permettre de sauvegarder sans jours sélectionnés
+                        return@Button
+                    }
+                    
                     val rule = RecurrenceRule(
-                        type = recurrenceType,
-                        daysOfWeek = emptyList(),
+                        type = RecurrenceType.WEEKLY,
+                        daysOfWeek = selectedDays.sorted().toList(),
                         startHour = null,
                         endHour = null,
                         dayOfMonth = null
                     )
+                    
+                    val rotationMinutes = rotationInterval.trim().takeIf { it.isNotEmpty() }?.toIntOrNull()
+                    
                     scope.launch {
-                        viewModel.saveFolder(name, recurrenceType, rule, targetScreen)
+                        viewModel.saveFolder(
+                            name = name,
+                            recurrenceType = RecurrenceType.WEEKLY,
+                            recurrenceRule = rule,
+                            targetScreen = targetScreen,
+                            rotationIntervalMinutes = rotationMinutes,
+                            changeOnUnlock = changeOnUnlock
+                        )
                         onNavigateBack()
                     }
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                enabled = selectedDays.isNotEmpty()
             ) {
                 Text(stringResource(R.string.save))
             }

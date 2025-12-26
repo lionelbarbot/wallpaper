@@ -3,6 +3,13 @@
 # Script pour compiler et installer l'APK sur l'émulateur/appareil connecté
 # Usage: ./build_and_install.sh [debug|release]
 
+# Configuration Java depuis Android Studio
+ANDROID_STUDIO_APP="/Applications/Android Studio.app"
+if [ -d "$ANDROID_STUDIO_APP" ]; then
+    export JAVA_HOME="$ANDROID_STUDIO_APP/Contents/jbr/Contents/Home"
+    export PATH="$JAVA_HOME/bin:$PATH"
+fi
+
 BUILD_TYPE="${1:-debug}"
 ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
 ADB="$ANDROID_HOME/platform-tools/adb"

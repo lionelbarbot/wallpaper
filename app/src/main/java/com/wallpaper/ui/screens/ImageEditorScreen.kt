@@ -33,7 +33,7 @@ fun ImageEditorScreen(
     LaunchedEffect(image) {
         image?.let { img ->
             val imagePath = img.filePath
-            if (imagePath.isNotEmpty()) {
+            if (imagePath.isNotEmpty() && context is android.app.Activity) {
                 // Démarrer uCrop pour éditer l'image
                 val sourceUri = Uri.fromFile(File(imagePath))
                 val destinationUri = Uri.fromFile(File(imagePath)) // Écrase l'original
@@ -41,7 +41,7 @@ fun ImageEditorScreen(
                 UCrop.of(sourceUri, destinationUri)
                     .withAspectRatio(16f, 9f)
                     .withMaxResultSize(1920, 1080)
-                    .start(context)
+                    .start(context as android.app.Activity)
             }
         }
     }

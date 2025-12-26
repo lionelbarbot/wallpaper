@@ -13,7 +13,7 @@ import com.wallpaper.data.database.converters.TargetScreenConverter
 
 @Database(
     entities = [WallpaperFolder::class, WallpaperImage::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(RecurrenceTypeConverter::class, TargetScreenConverter::class)
@@ -30,7 +30,9 @@ abstract class WallpaperDatabase : RoomDatabase() {
                     context.applicationContext,
                     WallpaperDatabase::class.java,
                     "wallpaper_database"
-                ).build()
+                )
+                .fallbackToDestructiveMigration() // Pour le développement - supprime en production
+                .build()
                 INSTANCE = instance
                 instance
             }

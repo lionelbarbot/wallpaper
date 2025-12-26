@@ -30,7 +30,9 @@ class EditFolderViewModel(
         name: String,
         recurrenceType: RecurrenceType,
         recurrenceRule: RecurrenceRule,
-        targetScreen: TargetScreen
+        targetScreen: TargetScreen,
+        rotationIntervalMinutes: Int? = null,
+        changeOnUnlock: Boolean = false
     ) {
         viewModelScope.launch {
             val folder = if (folderId != null) {
@@ -38,14 +40,18 @@ class EditFolderViewModel(
                     name = name,
                     recurrenceType = recurrenceType,
                     recurrenceRule = recurrenceRule.toJson(),
-                    targetScreen = targetScreen
+                    targetScreen = targetScreen,
+                    rotationIntervalMinutes = rotationIntervalMinutes,
+                    changeOnUnlock = changeOnUnlock
                 ) ?: return@launch
             } else {
                 WallpaperFolder(
                     name = name,
                     recurrenceType = recurrenceType,
                     recurrenceRule = recurrenceRule.toJson(),
-                    targetScreen = targetScreen
+                    targetScreen = targetScreen,
+                    rotationIntervalMinutes = rotationIntervalMinutes,
+                    changeOnUnlock = changeOnUnlock
                 )
             }
             
