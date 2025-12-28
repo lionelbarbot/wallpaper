@@ -11,11 +11,14 @@ import com.wallpaper.data.model.RecurrenceType
 import com.wallpaper.data.model.TargetScreen
 import com.wallpaper.data.repository.WallpaperFolderRepository
 import com.wallpaper.domain.usecase.RecurrenceCalculator
+import com.wallpaper.util.WorkManagerHelper
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class EditFolderViewModel(
     private val folderId: Long?,
-    private val folderRepository: WallpaperFolderRepository
+    private val folderRepository: WallpaperFolderRepository,
+    private val context: Context? = null
 ) : ViewModel() {
     
     suspend fun getFolder(): WallpaperFolder? {
@@ -55,10 +58,35 @@ class EditFolderViewModel(
                 )
             }
             
-            if (folderId != null) {
+            val savedFolderId = if (folderId != null) {
                 folderRepository.updateFolder(folder)
+                folderId
             } else {
                 folderRepository.insertFolder(folder)
+            }
+            
+            // Gérer WorkManager si le répertoire est actif et a un intervalle de rotation
+            context?.let { ctx ->
+                // Vérifier si le répertoire est actif (mettre à jour les statuts d'abord)
+                folderRepository.updateActiveStatuses()
+                
+                // Récupérer le répertoire sauvegardé avec son statut actif mis à jour
+                val savedFolder = folderRepository.getFolderById(savedFolderId) ?: folder.copy(id = savedFolderId)
+                
+                // Vérifier si le répertoire est actif après mise à jour des statuts
+                val allFolders = folderRepository.getAllFolders().first()
+                val isActive = allFolders.any { it.id == savedFolderId && it.isActive }
+                
+                // Utiliser l'intervalle du répertoire sauvegardé
+                val rotationInterval = savedFolder.rotationIntervalMinutes
+                
+                if (isActive && rotationInterval != null && rotationInterval > 0) {
+                    // Démarrer ou redémarrer WorkManager avec le nouvel intervalle
+                    WorkManagerHelper.startWallpaperRotation(ctx, rotationInterval.toLong())
+                } else {
+                    // Arrêter WorkManager si pas d'intervalle ou répertoire non actif
+                    WorkManagerHelper.stopWallpaperRotation(ctx)
+                }
             }
         }
     }
@@ -73,7 +101,7 @@ class EditFolderViewModelFactory(
         val dao = database.wallpaperDao()
         val recurrenceCalculator = RecurrenceCalculator()
         val folderRepository = WallpaperFolderRepository(dao, recurrenceCalculator)
-        return EditFolderViewModel(folderId, folderRepository) as T
+        return EditFolderViewModel(folderId, folderRepository, context) as T
     }
 }
 

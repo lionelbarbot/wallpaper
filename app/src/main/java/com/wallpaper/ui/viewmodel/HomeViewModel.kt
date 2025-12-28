@@ -11,6 +11,7 @@ import com.wallpaper.data.repository.WallpaperImageRepository
 import com.wallpaper.data.repository.WallpaperServiceRepository
 import com.wallpaper.domain.usecase.RecurrenceCalculator
 import com.wallpaper.service.WallpaperService
+import com.wallpaper.util.WorkManagerHelper
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -55,10 +56,24 @@ class HomeViewModel(
                     if (firstImage != null) {
                         wallpaperService.applyWallpaper(updatedFolder, firstImage)
                     }
+                    
+                    // Démarrer WorkManager si le répertoire a un intervalle de rotation
+                    updatedFolder.rotationIntervalMinutes?.let { interval ->
+                        if (interval > 0) {
+                            WorkManagerHelper.startWallpaperRotation(ctx, interval.toLong())
+                        } else {
+                            WorkManagerHelper.stopWallpaperRotation(ctx)
+                        }
+                    } ?: WorkManagerHelper.stopWallpaperRotation(ctx)
                 }
             } else {
                 // Désactiver ce répertoire
                 folderRepository.updateFolder(folder.copy(isActive = false))
+                
+                // Arrêter WorkManager quand le répertoire est désactivé
+                context?.let { ctx ->
+                    WorkManagerHelper.stopWallpaperRotation(ctx)
+                }
             }
         }
     }

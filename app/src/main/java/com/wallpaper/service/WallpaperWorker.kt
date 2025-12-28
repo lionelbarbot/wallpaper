@@ -3,7 +3,6 @@ package com.wallpaper.service
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.wallpaper.WallpaperApplication
 import com.wallpaper.data.database.WallpaperDatabase
 import com.wallpaper.data.repository.WallpaperFolderRepository
 import com.wallpaper.data.repository.WallpaperImageRepository
@@ -22,29 +21,22 @@ class WallpaperWorker(
             val recurrenceCalculator = RecurrenceCalculator()
             val folderRepository = WallpaperFolderRepository(dao, recurrenceCalculator)
             val imageRepository = WallpaperImageRepository(dao)
-            val serviceRepository = WallpaperServiceRepository(folderRepository, imageRepository)
+            val serviceRepository = WallpaperServiceRepository(folderRepository, imageRepository, applicationContext)
             val wallpaperService = WallpaperService(applicationContext)
             
-            // Mettre à jour les statuts actifs des répertoires
             folderRepository.updateActiveStatuses()
             
-            // Récupérer le répertoire actif et son image
-            val (activeFolder, currentImage) = serviceRepository.getActiveWallpaper()
-            
-            if (activeFolder != null && currentImage != null) {
-                // Appliquer le fond d'écran
-                val result = wallpaperService.applyWallpaper(activeFolder, currentImage)
-                if (result.isSuccess) {
-                    Result.success()
-                } else {
-                    Result.retry()
+            val activeFolder = folderRepository.getActiveFolder()
+            if (activeFolder != null) {
+                val nextImage = serviceRepository.getNextImage(activeFolder.id)
+                if (nextImage != null) {
+                    val result = wallpaperService.applyWallpaper(activeFolder, nextImage)
+                    return if (result.isSuccess) Result.success() else Result.retry()
                 }
-            } else {
-                Result.success() // Pas de répertoire actif, c'est OK
             }
+            Result.success()
         } catch (e: Exception) {
             Result.retry()
         }
     }
 }
-
