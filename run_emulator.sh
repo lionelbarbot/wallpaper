@@ -27,7 +27,7 @@ if [ -z "$AVAILABLE_AVDS" ]; then
     echo "❌ Aucun AVD trouvé. Veuillez créer un AVD dans Android Studio:"
     echo "   1. Ouvrir Android Studio"
     echo "   2. Device Manager > Create Device"
-    echo "   3. Choisir un appareil et une image système (API 34 recommandé)"
+    echo "   3. Choisir un appareil et une image système (API 35 requis)"
     exit 1
 fi
 

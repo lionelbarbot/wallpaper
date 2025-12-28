@@ -39,16 +39,13 @@ object AccessibilityHelper {
     /**
      * Ouvre directement les paramètres d'accessibilité avec un filtre pour cette application
      * (Android 11+)
+     * Avec minSdk 35, nous utilisons toujours cette méthode (API 30+)
      */
     fun openAccessibilitySettingsForApp(context: Context) {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-            intent.putExtra(":settings:fragment_args_key", context.packageName)
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            context.startActivity(intent)
-        } else {
-            openAccessibilitySettings(context)
-        }
+        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+        intent.putExtra(":settings:fragment_args_key", context.packageName)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        context.startActivity(intent)
     }
 }
 
