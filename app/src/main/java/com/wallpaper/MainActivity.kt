@@ -18,8 +18,6 @@ import com.wallpaper.util.PermissionHelper
 
 class MainActivity : ComponentActivity() {
     
-    var uCropCompleted = false
-    
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
@@ -41,30 +39,8 @@ class MainActivity : ComponentActivity() {
         }
     }
     
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        // Gérer le résultat de uCrop
-        if (requestCode == com.yalantis.ucrop.UCrop.REQUEST_CROP) {
-            uCropCompleted = true
-            if (resultCode == RESULT_OK) {
-                // L'image a été éditée avec succès
-                android.util.Log.d("MainActivity", "uCrop completed successfully")
-            } else if (resultCode == com.yalantis.ucrop.UCrop.RESULT_ERROR && data != null) {
-                // Erreur lors de l'édition
-                val cropError = com.yalantis.ucrop.UCrop.getError(data)
-                cropError?.printStackTrace()
-            }
-        }
-    }
-    
     override fun onResume() {
         super.onResume()
-        
-        // Si uCrop vient de se terminer, réinitialiser le flag après un court délai
-        if (uCropCompleted) {
-            android.util.Log.d("MainActivity", "Resumed after uCrop completion")
-            uCropCompleted = false
-        }
         
         // Re-vérifier le service d'accessibilité quand l'activité reprend
         // Cela permet de détecter si l'utilisateur a activé le service depuis les paramètres

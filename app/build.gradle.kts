@@ -86,9 +86,6 @@ dependencies {
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.5.0")
     
-    // uCrop for image editing
-    implementation("com.github.yalantis:ucrop:2.2.8")
-    
     // WorkManager
     implementation("androidx.work:work-runtime-ktx:2.9.0")
     

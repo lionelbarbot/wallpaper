@@ -53,7 +53,7 @@ fun FolderDetailScreen(
     val folder by viewModel.folder.collectAsState()
     var imageRefreshKey by remember { mutableStateOf(0) }
     
-    // Surveiller onResume pour rafraîchir les images après uCrop
+    // Surveiller onResume pour rafraîchir les images après édition
     val activity = context as? Activity
     DisposableEffect(activity) {
         if (activity is LifecycleOwner) {

@@ -14,7 +14,7 @@ Une application Android pour gérer et changer automatiquement les fonds d'écra
 
 ### Gestion des Images
 - Ajouter des images depuis la galerie
-- Éditer les images (zoom, crop, resize) avec uCrop
+- Éditer les images (zoom, crop, rotation) avec l'éditeur intégré
 - Les images éditées écrasent les originales
 - Affichage en grille des images d'un répertoire
 
@@ -34,7 +34,7 @@ Une application Android pour gérer et changer automatiquement les fonds d'écra
 - **Architecture** : MVVM avec ViewModel et StateFlow
 - **Base de données** : Room Database
 - **Chargement d'images** : Coil
-- **Édition d'images** : uCrop
+- **Édition d'images** : Composant Compose custom
 - **Tâches en arrière-plan** : WorkManager
 - **API Fonds d'écran** : WallpaperManager
 - **Détection de gestes** : AccessibilityService
@@ -94,7 +94,7 @@ cd wallpaper
 ### Éditer une Image
 
 1. Cliquer sur une image dans un répertoire
-2. L'éditeur uCrop s'ouvrira automatiquement
+2. L'éditeur d'image s'ouvrira automatiquement
 3. Ajuster le zoom, le crop et la taille
 4. Sauvegarder (l'image originale sera écrasée)
 
@@ -114,7 +114,7 @@ cd wallpaper
 - **Scoped Storage** : L'application utilise Scoped Storage pour créer et gérer les répertoires d'images dans son espace privé
 - **WorkManager** : Les tâches périodiques utilisent WorkManager avec des contraintes pour optimiser la batterie
 - **AccessibilityService** : Le service de gestes nécessite une activation manuelle pour des raisons de sécurité
-- **uCrop** : L'édition d'images utilise la bibliothèque uCrop qui nécessite une Activity pour fonctionner
+- **Éditeur d'images** : Composant Compose natif avec support des gestes (zoom, pan, rotation) et recadrage
 
 ## Licence
 
