@@ -17,10 +17,17 @@ class WallpaperServiceRepository(
         val activeFolder = folderRepository.getActiveFolder() ?: return Pair(null, null)
         
         val lastImageId = preferences.getCurrentImageId(activeFolder.id)
-        val image = if (lastImageId != -1L) {
-            imageRepository.getImageById(lastImageId) ?: imageRepository.getFirstImageByFolderId(activeFolder.id)
+        val image = if (activeFolder.randomOrder) {
+            // Ordre aléatoire : récupérer une image aléatoire (différente de la précédente si possible)
+            imageRepository.getRandomImage(activeFolder.id, if (lastImageId != -1L) lastImageId else null)
+                ?: imageRepository.getFirstImageByFolderId(activeFolder.id)
         } else {
-            imageRepository.getFirstImageByFolderId(activeFolder.id)
+            // Ordre séquentiel : récupérer la dernière image ou la première
+            if (lastImageId != -1L) {
+                imageRepository.getImageById(lastImageId) ?: imageRepository.getFirstImageByFolderId(activeFolder.id)
+            } else {
+                imageRepository.getFirstImageByFolderId(activeFolder.id)
+            }
         }
         
         return Pair(activeFolder, image)
@@ -28,9 +35,17 @@ class WallpaperServiceRepository(
     
     suspend fun getNextImage(currentFolderId: Long?): WallpaperImage? {
         val folderId = currentFolderId ?: folderRepository.getActiveFolder()?.id ?: return null
+        val folder = folderRepository.getFolderById(folderId) ?: return null
         val currentImageId = preferences.getCurrentImageId(folderId)
         
-        val nextImage = imageRepository.getNextImage(folderId, if (currentImageId != -1L) currentImageId else null)
+        val nextImage = if (folder.randomOrder) {
+            // Ordre aléatoire : récupérer une image aléatoire (différente de la précédente si possible)
+            imageRepository.getRandomImage(folderId, if (currentImageId != -1L) currentImageId else null)
+        } else {
+            // Ordre séquentiel : récupérer l'image suivante dans l'ordre
+            imageRepository.getNextImage(folderId, if (currentImageId != -1L) currentImageId else null)
+        }
+        
         if (nextImage != null) {
             preferences.setCurrentImageId(folderId, nextImage.id)
         }

@@ -16,6 +16,7 @@ data class WallpaperFolder(
     val isActive: Boolean = false,
     val rotationIntervalMinutes: Int? = null, // Intervalle de rotation en minutes (null = pas de rotation automatique)
     val changeOnUnlock: Boolean = false, // Changer l'image au déverrouillage
+    val randomOrder: Boolean = false, // Ordre aléatoire des images
     val createdAt: Long = System.currentTimeMillis()
 )
 

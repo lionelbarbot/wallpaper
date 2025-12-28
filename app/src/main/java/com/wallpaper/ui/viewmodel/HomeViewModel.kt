@@ -39,8 +39,13 @@ class HomeViewModel(
     fun toggleFolderActive(folder: WallpaperFolder) {
         viewModelScope.launch {
             if (!folder.isActive) {
-                // Désactiver tous les autres répertoires d'abord
-                folderRepository.updateActiveStatuses()
+                // Désactiver tous les autres répertoires manuellement (sans réévaluer les règles)
+                val allFolders = folderRepository.getAllFolders().first()
+                allFolders.forEach { f ->
+                    if (f.id != folder.id && f.isActive) {
+                        folderRepository.updateFolder(f.copy(isActive = false))
+                    }
+                }
                 // Activer ce répertoire
                 val updatedFolder = folder.copy(isActive = true)
                 folderRepository.updateFolder(updatedFolder)
@@ -52,7 +57,12 @@ class HomeViewModel(
                     val imageRepository = WallpaperImageRepository(dao)
                     val wallpaperService = WallpaperService(ctx)
                     
-                    val firstImage = imageRepository.getFirstImageByFolderId(folder.id)
+                    // Utiliser l'ordre aléatoire si activé, sinon la première image
+                    val firstImage = if (updatedFolder.randomOrder) {
+                        imageRepository.getRandomImage(updatedFolder.id)
+                    } else {
+                        imageRepository.getFirstImageByFolderId(updatedFolder.id)
+                    }
                     if (firstImage != null) {
                         wallpaperService.applyWallpaper(updatedFolder, firstImage)
                     }

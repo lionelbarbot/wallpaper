@@ -24,7 +24,10 @@ class WallpaperWorker(
             val serviceRepository = WallpaperServiceRepository(folderRepository, imageRepository, applicationContext)
             val wallpaperService = WallpaperService(applicationContext)
             
-            folderRepository.updateActiveStatuses()
+            // Ne pas réinitialiser les statuts si un répertoire a été activé manuellement
+            // updateActiveStatuses() réinitialise tous les statuts selon les règles de récurrence
+            // ce qui peut désactiver un répertoire activé manuellement par l'utilisateur
+            // folderRepository.updateActiveStatuses()
             
             val activeFolder = folderRepository.getActiveFolder()
             if (activeFolder != null) {

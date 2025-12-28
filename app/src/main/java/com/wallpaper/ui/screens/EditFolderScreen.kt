@@ -1,6 +1,8 @@
 package com.wallpaper.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -17,6 +19,8 @@ import com.wallpaper.data.model.RecurrenceType
 import com.wallpaper.data.model.TargetScreen
 import com.wallpaper.ui.viewmodel.EditFolderViewModel
 import com.wallpaper.ui.viewmodel.EditFolderViewModelFactory
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,11 +33,45 @@ fun EditFolderScreen(
     )
 ) {
     val scope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
     var name by remember { mutableStateOf("") }
     var selectedDays by remember { mutableStateOf(setOf<Int>()) } // 1-7 (Monday-Sunday)
     var targetScreen by remember { mutableStateOf(TargetScreen.BOTH) }
     var rotationInterval by remember { mutableStateOf("") }
     var changeOnUnlock by remember { mutableStateOf(false) }
+    var randomOrder by remember { mutableStateOf(false) }
+    
+    // Job pour la sauvegarde automatique avec debounce
+    var autoSaveJob by remember { mutableStateOf<Job?>(null) }
+    
+    // Fonction pour sauvegarder automatiquement
+    fun autoSave() {
+        if (selectedDays.isEmpty()) return
+        
+        autoSaveJob?.cancel()
+        autoSaveJob = scope.launch {
+            delay(500) // Debounce de 500ms
+            val rule = RecurrenceRule(
+                type = RecurrenceType.WEEKLY,
+                daysOfWeek = selectedDays.sorted().toList(),
+                startHour = null,
+                endHour = null,
+                dayOfMonth = null
+            )
+            
+            val rotationMinutes = rotationInterval.trim().takeIf { it.isNotEmpty() }?.toIntOrNull()
+            
+            viewModel.saveFolder(
+                name = name,
+                recurrenceType = RecurrenceType.WEEKLY,
+                recurrenceRule = rule,
+                targetScreen = targetScreen,
+                rotationIntervalMinutes = rotationMinutes,
+                changeOnUnlock = changeOnUnlock,
+                randomOrder = randomOrder
+            )
+        }
+    }
     
     LaunchedEffect(folderId) {
         if (folderId != null) {
@@ -43,6 +81,7 @@ fun EditFolderScreen(
                 targetScreen = it.targetScreen
                 rotationInterval = it.rotationIntervalMinutes?.toString() ?: ""
                 changeOnUnlock = it.changeOnUnlock
+                randomOrder = it.randomOrder
                 // Charger les jours sélectionnés depuis la règle de récurrence
                 val rule = RecurrenceRule.fromJson(it.recurrenceRule)
                 selectedDays = rule?.daysOfWeek?.toSet() ?: emptySet()
@@ -74,12 +113,16 @@ fun EditFolderScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(scrollState)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             OutlinedTextField(
                 value = name,
-                onValueChange = { name = it },
+                onValueChange = { 
+                    name = it
+                    autoSave()
+                },
                 label = { Text(stringResource(R.string.folder_name)) },
                 placeholder = { Text(stringResource(R.string.folder_name_hint)) },
                 modifier = Modifier.fillMaxWidth(),
@@ -125,6 +168,7 @@ fun EditFolderScreen(
                                 } else {
                                     selectedDays + dayNumber
                                 }
+                                autoSave()
                             },
                             label = { 
                                 Text(
@@ -156,7 +200,10 @@ fun EditFolderScreen(
                 ) {
                     RadioButton(
                         selected = targetScreen == screen,
-                        onClick = { targetScreen = screen },
+                        onClick = { 
+                            targetScreen = screen
+                            autoSave()
+                        },
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
@@ -181,7 +228,10 @@ fun EditFolderScreen(
             
             OutlinedTextField(
                 value = rotationInterval,
-                onValueChange = { rotationInterval = it },
+                onValueChange = { 
+                    rotationInterval = it
+                    autoSave()
+                },
                 label = { Text(stringResource(R.string.rotation_interval)) },
                 placeholder = { Text(stringResource(R.string.rotation_interval_hint)) },
                 modifier = Modifier.fillMaxWidth(),
@@ -207,46 +257,40 @@ fun EditFolderScreen(
                 }
                 Switch(
                     checked = changeOnUnlock,
-                    onCheckedChange = { changeOnUnlock = it }
+                    onCheckedChange = { 
+                        changeOnUnlock = it
+                        autoSave()
+                    }
                 )
             }
             
-            Spacer(modifier = Modifier.weight(1f))
-            
-            Button(
-                onClick = {
-                    if (selectedDays.isEmpty()) {
-                        // Ne pas permettre de sauvegarder sans jours sélectionnés
-                        return@Button
-                    }
-                    
-                    val rule = RecurrenceRule(
-                        type = RecurrenceType.WEEKLY,
-                        daysOfWeek = selectedDays.sorted().toList(),
-                        startHour = null,
-                        endHour = null,
-                        dayOfMonth = null
-                    )
-                    
-                    val rotationMinutes = rotationInterval.trim().takeIf { it.isNotEmpty() }?.toIntOrNull()
-                    
-                    scope.launch {
-                        viewModel.saveFolder(
-                            name = name,
-                            recurrenceType = RecurrenceType.WEEKLY,
-                            recurrenceRule = rule,
-                            targetScreen = targetScreen,
-                            rotationIntervalMinutes = rotationMinutes,
-                            changeOnUnlock = changeOnUnlock
-                        )
-                        onNavigateBack()
-                    }
-                },
+            // Option ordre aléatoire
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                enabled = selectedDays.isNotEmpty()
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(stringResource(R.string.save))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.random_order),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = stringResource(R.string.random_order_description),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = randomOrder,
+                    onCheckedChange = { 
+                        randomOrder = it
+                        autoSave()
+                    }
+                )
             }
+            
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

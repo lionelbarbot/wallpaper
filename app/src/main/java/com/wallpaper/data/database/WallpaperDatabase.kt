@@ -13,7 +13,7 @@ import com.wallpaper.data.database.converters.TargetScreenConverter
 
 @Database(
     entities = [WallpaperFolder::class, WallpaperImage::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(RecurrenceTypeConverter::class, TargetScreenConverter::class)

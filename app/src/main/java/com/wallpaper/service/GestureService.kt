@@ -117,7 +117,12 @@ class GestureService : AccessibilityService() {
     private fun handleQuadrupleTap() {
         serviceScope.launch {
             val nextFolder = serviceRepository.getNextFolder() ?: return@launch
-            val firstImage = imageRepository.getFirstImageByFolderId(nextFolder.id)
+                    // Utiliser l'ordre aléatoire si activé, sinon la première image
+                    val firstImage = if (nextFolder.randomOrder) {
+                        imageRepository.getRandomImage(nextFolder.id)
+                    } else {
+                        imageRepository.getFirstImageByFolderId(nextFolder.id)
+                    }
             if (firstImage != null) {
                 wallpaperService.applyWallpaper(nextFolder, firstImage)
             }

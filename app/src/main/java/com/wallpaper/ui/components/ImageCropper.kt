@@ -5,10 +5,12 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.util.Log
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.RotateRight
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,10 +20,10 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -30,7 +32,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import kotlin.math.abs
 
+enum class AspectRatio(val label: String, val ratio: Float?) {
+    FREE("Libre", null),
+    SCREEN("Écran", -1f),
+    SQUARE("1:1", 1f),
+    PORTRAIT("9:16", 9f/16f),
+    LANDSCAPE("16:9", 16f/9f)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImageCropper(
     imagePath: String,
@@ -39,301 +51,273 @@ fun ImageCropper(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
     val coroutineScope = rememberCoroutineScope()
+    
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
     var imageBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     
-    // État de transformation
     var scale by remember { mutableStateOf(1f) }
     var rotation by remember { mutableStateOf(0f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
+    var isFlippedHorizontal by remember { mutableStateOf(false) }
     
-    // Zone de recadrage (cropRect)
+    val screenRatio = configuration.screenHeightDp.toFloat() / configuration.screenWidthDp.toFloat()
+    var selectedRatio by remember { mutableStateOf(AspectRatio.SCREEN) }
     var cropRect by remember { mutableStateOf<Rect?>(null) }
     var containerSize by remember { mutableStateOf(Size.Zero) }
     
-    // Charger l'image
+    var isDraggingCropRect by remember { mutableStateOf(false) }
+    var isResizingCropRect by remember { mutableStateOf(false) }
+    var resizeCorner by remember { mutableStateOf(-1) }
+    var cropRectStart by remember { mutableStateOf<Rect?>(null) }
+
     LaunchedEffect(imagePath) {
         withContext(Dispatchers.IO) {
             try {
-                val file = File(imagePath)
-                if (file.exists()) {
-                    val loadedBitmap = BitmapFactory.decodeFile(imagePath)
-                    bitmap = loadedBitmap
-                    imageBitmap = loadedBitmap.asImageBitmap()
-                } else {
-                    Log.e("ImageCropper", "Image file not found: $imagePath")
+                BitmapFactory.decodeFile(imagePath)?.let {
+                    bitmap = it
+                    imageBitmap = it.asImageBitmap()
                 }
             } catch (e: Exception) {
-                Log.e("ImageCropper", "Error loading image", e)
+                Log.e("ImageCropper", "Load error", e)
             }
         }
     }
-    
-    // Initialiser les dimensions et la zone de recadrage
-    LaunchedEffect(imageBitmap, containerSize.width, containerSize.height) {
-        imageBitmap?.let { img ->
-            if (containerSize.width > 0 && containerSize.height > 0) {
-                val imageWidth = img.width.toFloat()
-                val imageHeight = img.height.toFloat()
-                val containerWidth = containerSize.width
-                val containerHeight = containerSize.height
-                
-                // Calculer l'échelle pour que l'image s'adapte au conteneur
-                val scaleX = containerWidth / imageWidth
-                val scaleY = containerHeight / imageHeight
-                val initialScale = minOf(scaleX, scaleY) * 0.9f
-                
-                scale = initialScale
+
+    LaunchedEffect(containerSize, imageBitmap) {
+        if (containerSize.width > 0 && imageBitmap != null && cropRect == null) {
+            val screenAspectRatio = containerSize.height / containerSize.width
+            val cropWidth = containerSize.width * 0.8f
+            val cropHeight = cropWidth * screenAspectRatio
+            
+            cropRect = Rect(
                 offset = Offset(
-                    (containerWidth - imageWidth * initialScale) / 2,
-                    (containerHeight - imageHeight * initialScale) / 2
-                )
-                
-                // Initialiser la zone de recadrage au centre (80% de la taille de l'image)
-                val cropWidth = imageWidth * initialScale * 0.8f
-                val cropHeight = imageHeight * initialScale * 0.8f
-                cropRect = Rect(
-                    offset = Offset(
-                        (containerWidth - cropWidth) / 2,
-                        (containerHeight - cropHeight) / 2
-                    ),
-                    size = Size(cropWidth, cropHeight)
-                )
-            }
-        }
-    }
-    
-    Box(modifier = modifier.fillMaxSize()) {
-        imageBitmap?.let { img ->
-            Canvas(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectTransformGestures { _, pan, zoom, rotationChange ->
-                            scale = (scale * zoom).coerceIn(0.5f, 5f)
-                            rotation += rotationChange
-                            offset += pan
-                        }
-                    }
-                    .onSizeChanged { size ->
-                        containerSize = Size(size.width.toFloat(), size.height.toFloat())
-                    }
-            ) {
-                val imageWidth = img.width.toFloat()
-                val imageHeight = img.height.toFloat()
-                
-                // Appliquer les transformations avec withTransform
-                withTransform({
-                    translate(offset.x, offset.y)
-                    val pivot = Offset(imageWidth / 2, imageHeight / 2)
-                    scale(scale, scale, pivot)
-                    rotate(rotation, pivot)
-                }) {
-                    // Dessiner l'image
-                    drawImage(
-                        image = img,
-                        dstSize = IntSize(imageWidth.toInt(), imageHeight.toInt())
-                    )
-                }
-                
-                // Dessiner l'overlay sombre autour de la zone de recadrage
-                cropRect?.let { rect ->
-                    // Zone sombre en haut
-                    drawRect(
-                        color = Color.Black.copy(alpha = 0.5f),
-                        topLeft = Offset(0f, 0f),
-                        size = Size(size.width, rect.top)
-                    )
-                    // Zone sombre en bas
-                    drawRect(
-                        color = Color.Black.copy(alpha = 0.5f),
-                        topLeft = Offset(0f, rect.bottom),
-                        size = Size(size.width, size.height - rect.bottom)
-                    )
-                    // Zone sombre à gauche
-                    drawRect(
-                        color = Color.Black.copy(alpha = 0.5f),
-                        topLeft = Offset(0f, rect.top),
-                        size = Size(rect.left, rect.height)
-                    )
-                    // Zone sombre à droite
-                    drawRect(
-                        color = Color.Black.copy(alpha = 0.5f),
-                        topLeft = Offset(rect.right, rect.top),
-                        size = Size(size.width - rect.right, rect.height)
-                    )
-                    
-                    // Dessiner le cadre de recadrage
-                    drawRect(
-                        color = Color.White,
-                        style = Stroke(width = 3.dp.toPx()),
-                        topLeft = rect.topLeft,
-                        size = rect.size
-                    )
-                    
-                    // Dessiner la grille de recadrage (3x3)
-                    // Lignes verticales
-                    drawLine(
-                        color = Color.White.copy(alpha = 0.5f),
-                        start = Offset(rect.left + rect.width / 3, rect.top),
-                        end = Offset(rect.left + rect.width / 3, rect.bottom),
-                        strokeWidth = 1.dp.toPx()
-                    )
-                    drawLine(
-                        color = Color.White.copy(alpha = 0.5f),
-                        start = Offset(rect.left + rect.width * 2 / 3, rect.top),
-                        end = Offset(rect.left + rect.width * 2 / 3, rect.bottom),
-                        strokeWidth = 1.dp.toPx()
-                    )
-                    
-                    // Lignes horizontales
-                    drawLine(
-                        color = Color.White.copy(alpha = 0.5f),
-                        start = Offset(rect.left, rect.top + rect.height / 3),
-                        end = Offset(rect.right, rect.top + rect.height / 3),
-                        strokeWidth = 1.dp.toPx()
-                    )
-                    drawLine(
-                        color = Color.White.copy(alpha = 0.5f),
-                        start = Offset(rect.left, rect.top + rect.height * 2 / 3),
-                        end = Offset(rect.right, rect.top + rect.height * 2 / 3),
-                        strokeWidth = 1.dp.toPx()
-                    )
-                }
-            }
-        } ?: run {
-            CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.Center)
+                    (containerSize.width - cropWidth) / 2,
+                    (containerSize.height - cropHeight) / 2
+                ),
+                size = Size(cropWidth, cropHeight)
+            )
+            
+            val img = imageBitmap!!
+            val scaleX = containerSize.width / img.width
+            val scaleY = containerSize.height / img.height
+            scale = maxOf(scaleX, scaleY)
+            offset = Offset(
+                (containerSize.width - img.width * scale) / 2,
+                (containerSize.height - img.height * scale) / 2
             )
         }
-        
-        // Barre d'outils en bas
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter),
-            color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 8.dp
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Bouton Annuler
-                TextButton(onClick = onCancel) {
-                    Text("Annuler")
-                }
-                
-                // Bouton Rotation
-                IconButton(
-                    onClick = {
-                        rotation += 90f
-                    }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.RotateRight,
-                        contentDescription = "Rotation"
-                    )
-                }
-                
-                // Bouton Valider
-                Button(
-                    onClick = {
-                        bitmap?.let { bmp ->
-                            cropRect?.let { rect ->
-                                coroutineScope.launch(Dispatchers.IO) {
-                                    try {
-                                        val imageWidth = bmp.width.toFloat()
-                                        val imageHeight = bmp.height.toFloat()
-                                        
-                                        // Calculer les coordonnées de recadrage dans l'image originale
-                                        // Le rectangle de recadrage est en coordonnées canvas
-                                        // On doit le convertir en coordonnées image en tenant compte de scale et offset
-                                        
-                                        // Convertir les coordonnées du rectangle de recadrage (canvas) vers l'image
-                                        // En tenant compte que l'image est centrée et transformée
-                                        val imageCenterX = offset.x + imageWidth * scale / 2
-                                        val imageCenterY = offset.y + imageHeight * scale / 2
-                                        
-                                        // Coordonnées du rectangle de recadrage par rapport au centre de l'image transformée
-                                        val cropCenterX = (rect.left + rect.right) / 2
-                                        val cropCenterY = (rect.top + rect.bottom) / 2
-                                        
-                                        // Convertir en coordonnées image (sans rotation pour l'instant)
-                                        val relativeX = (cropCenterX - imageCenterX) / scale
-                                        val relativeY = (cropCenterY - imageCenterY) / scale
-                                        
-                                        val cropWidthInImage = rect.width / scale
-                                        val cropHeightInImage = rect.height / scale
-                                        
-                                        // Coordonnées dans l'image originale (avant rotation)
-                                        val cropX = (imageWidth / 2 + relativeX - cropWidthInImage / 2).coerceIn(0f, imageWidth)
-                                        val cropY = (imageHeight / 2 + relativeY - cropHeightInImage / 2).coerceIn(0f, imageHeight)
-                                        val cropRight = (cropX + cropWidthInImage).coerceIn(0f, imageWidth)
-                                        val cropBottom = (cropY + cropHeightInImage).coerceIn(0f, imageHeight)
-                                        
-                                        val finalCropX = cropX.toInt()
-                                        val finalCropY = cropY.toInt()
-                                        val finalCropWidth = (cropRight - cropX).toInt().coerceIn(1, bmp.width - finalCropX)
-                                        val finalCropHeight = (cropBottom - cropY).toInt().coerceIn(1, bmp.height - finalCropY)
-                                        
-                                        // Recadrer d'abord, puis appliquer la rotation
-                                        val croppedBitmap = Bitmap.createBitmap(
-                                            bmp,
-                                            finalCropX,
-                                            finalCropY,
-                                            finalCropWidth,
-                                            finalCropHeight
-                                        )
-                                        
-                                        // Appliquer la rotation si nécessaire
-                                        val finalBitmap = if (rotation != 0f) {
-                                            val rotationMatrix = Matrix().apply {
-                                                postRotate(rotation)
-                                            }
-                                            val rotated = Bitmap.createBitmap(
-                                                croppedBitmap,
-                                                0,
-                                                0,
-                                                croppedBitmap.width,
-                                                croppedBitmap.height,
-                                                rotationMatrix,
-                                                true
-                                            )
-                                            croppedBitmap.recycle()
-                                            rotated
-                                        } else {
-                                            croppedBitmap
-                                        }
-                                        
-                                        // Sauvegarder l'image recadrée
-                                        val file = File(imagePath)
-                                        FileOutputStream(file).use { out ->
-                                            finalBitmap.compress(
-                                                Bitmap.CompressFormat.JPEG,
-                                                95,
-                                                out
-                                            )
-                                        }
-                                        
-                                        finalBitmap.recycle()
-                                        
-                                        onCropComplete(imagePath)
-                                    } catch (e: Exception) {
-                                        Log.e("ImageCropper", "Error saving cropped image", e)
-                                    }
-                                }
+    }
+
+    Column(modifier = modifier.fillMaxSize().background(Color.Black)) {
+        Box(modifier = Modifier.weight(1f).onSizeChanged { 
+            containerSize = Size(it.width.toFloat(), it.height.toFloat()) 
+        }) {
+            imageBitmap?.let { img ->
+                Canvas(
+                    modifier = Modifier.fillMaxSize()
+                        .pointerInput(Unit) {
+                            detectTransformGestures { _, pan, zoom, rot ->
+                                scale = (scale * zoom).coerceIn(0.1f, 10f)
+                                rotation += rot
+                                offset += pan
                             }
                         }
-                    }
+                        .pointerInput(cropRect) {
+                            detectDragGestures(
+                                onDragStart = { startOffset ->
+                                    cropRect?.let { rect ->
+                                        val touchMargin = 40.dp.toPx()
+                                        val corners = listOf(rect.topLeft, Offset(rect.right, rect.top), Offset(rect.right, rect.bottom), Offset(rect.left, rect.bottom))
+                                        resizeCorner = corners.indexOfFirst { (it - startOffset).getDistance() < touchMargin }
+                                        
+                                        if (resizeCorner != -1) {
+                                            isResizingCropRect = true
+                                        } else if (rect.contains(startOffset)) {
+                                            isDraggingCropRect = true
+                                        }
+                                        cropRectStart = rect
+                                    }
+                                },
+                                onDrag = { change, dragAmount ->
+                                    cropRectStart?.let { start ->
+                                        if (isResizingCropRect) {
+                                            val ratio = if (selectedRatio == AspectRatio.SCREEN) containerSize.height/containerSize.width 
+                                                       else selectedRatio.ratio
+                                            
+                                            cropRect = applyResize(start, dragAmount, resizeCorner, ratio, containerSize)
+                                        } else if (isDraggingCropRect) {
+                                            cropRect = Rect(
+                                                offset = Offset(
+                                                    (start.left + dragAmount.x).coerceIn(0f, containerSize.width - start.width),
+                                                    (start.top + dragAmount.y).coerceIn(0f, containerSize.height - start.height)
+                                                ),
+                                                size = start.size
+                                            )
+                                        }
+                                        cropRectStart = cropRect
+                                    }
+                                },
+                                onDragEnd = {
+                                    isResizingCropRect = false
+                                    isDraggingCropRect = false
+                                }
+                            )
+                        }
                 ) {
-                    Text("Valider")
+                    withTransform({
+                        translate(offset.x, offset.y)
+                        val pivot = Offset(img.width / 2f, img.height / 2f)
+                        scale(scaleX = if (isFlippedHorizontal) -scale else scale, scaleY = scale, pivot = pivot)
+                        rotate(rotation, pivot)
+                    }) {
+                        drawImage(img, dstSize = IntSize(img.width, img.height))
+                    }
+
+                    cropRect?.let { rect ->
+                        val path = Path().apply {
+                            addRect(Rect(Offset.Zero, containerSize))
+                            addRect(rect)
+                            fillType = PathFillType.EvenOdd
+                        }
+                        drawPath(path, Color.Black.copy(alpha = 0.7f))
+                        drawRect(color = Color.White, topLeft = rect.topLeft, size = rect.size, style = Stroke(2.dp.toPx()))
+                        
+                        val cSize = 10.dp.toPx()
+                        listOf(rect.topLeft, Offset(rect.right, rect.top), Offset(rect.right, rect.bottom), Offset(rect.left, rect.bottom)).forEach {
+                            drawRect(color = Color.White, topLeft = Offset(it.x - cSize, it.y - cSize), size = Size(cSize*2, cSize*2))
+                        }
+                    }
+                }
+            }
+        }
+
+        Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 4.dp) {
+            Column {
+                Row(Modifier.fillMaxWidth().padding(4.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    AspectRatio.values().forEach { ratio ->
+                        FilterChip(
+                            selected = selectedRatio == ratio,
+                            onClick = { 
+                                selectedRatio = ratio
+                                cropRect = resetCropRect(containerSize, ratio)
+                            },
+                            label = { Text(ratio.label, style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
+                
+                Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { onCancel() }) { Icon(Icons.Default.Close, "Annuler") }
+                    IconButton(onClick = { rotation -= 90f }) { Icon(Icons.Default.RotateLeft, "Rotation") }
+                    IconButton(onClick = { isFlippedHorizontal = !isFlippedHorizontal }) { Icon(Icons.Default.Flip, "Miroir") }
+                    Button(onClick = {
+                        coroutineScope.launch {
+                            val result = processCrop(bitmap!!, cropRect!!, scale, rotation, offset, isFlippedHorizontal, containerSize)
+                            saveBitmap(result, imagePath)
+                            onCropComplete(imagePath)
+                        }
+                    }) { Text("Enregistrer") }
                 }
             }
         }
     }
+}
+
+private fun resetCropRect(containerSize: Size, ratio: AspectRatio): Rect {
+    val r = when(ratio) {
+        AspectRatio.FREE -> null
+        AspectRatio.SCREEN -> containerSize.height / containerSize.width
+        else -> ratio.ratio!!
+    }
+    
+    val w = containerSize.width * 0.8f
+    val h = if (r != null) w * r else w
+    val finalH = if (h > containerSize.height * 0.8f) containerSize.height * 0.8f else h
+    val finalW = if (r != null) finalH / r else w
+
+    return Rect(
+        offset = Offset((containerSize.width - finalW)/2, (containerSize.height - finalH)/2),
+        size = Size(finalW, finalH)
+    )
+}
+
+private fun applyResize(start: Rect, delta: Offset, corner: Int, ratio: Float?, container: Size): Rect {
+    var newLeft = start.left
+    var newTop = start.top
+    var newRight = start.right
+    var newBottom = start.bottom
+
+    when (corner) {
+        0 -> { newLeft += delta.x; newTop += delta.y }
+        1 -> { newRight += delta.x; newTop += delta.y }
+        2 -> { newRight += delta.x; newBottom += delta.y }
+        3 -> { newLeft += delta.x; newBottom += delta.y }
+    }
+
+    var width = (newRight - newLeft).coerceAtLeast(100f)
+    var height = (newBottom - newTop).coerceAtLeast(100f)
+
+    if (ratio != null) {
+        if (abs(delta.x) > abs(delta.y)) {
+            height = width * ratio
+        } else {
+            width = height / ratio
+        }
+    }
+
+    return Rect(offset = Offset(newLeft, newTop), size = Size(width, height))
+}
+
+private suspend fun processCrop(src: Bitmap, crop: Rect, scale: Float, rot: Float, offset: Offset, flip: Boolean, container: Size): Bitmap = withContext(Dispatchers.IO) {
+    // Créer un bitmap de la taille du rectangle de recadrage
+    val result = Bitmap.createBitmap(crop.width.toInt(), crop.height.toInt(), Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(result)
+    
+    // Créer la matrice de transformation complète pour l'image
+    val transformMatrix = Matrix()
+    
+    // Centre de l'image originale
+    val imageCenterX = src.width / 2f
+    val imageCenterY = src.height / 2f
+    
+    // 1. Déplacer l'origine au centre de l'image
+    transformMatrix.postTranslate(-imageCenterX, -imageCenterY)
+    
+    // 2. Appliquer le retournement horizontal si nécessaire
+    if (flip) {
+        transformMatrix.postScale(-1f, 1f)
+    }
+    
+    // 3. Appliquer la rotation autour du centre
+    transformMatrix.postRotate(rot)
+    
+    // 4. Appliquer le scale
+    transformMatrix.postScale(scale, scale)
+    
+    // 5. Déplacer l'image selon l'offset dans le canvas principal
+    transformMatrix.postTranslate(offset.x, offset.y)
+    
+    // Maintenant, on veut extraire la partie qui correspond au rectangle de recadrage
+    // On doit déplacer le canvas pour que le coin supérieur gauche du rectangle de recadrage
+    // corresponde au coin supérieur gauche du canvas de résultat
+    transformMatrix.postTranslate(-crop.left, -crop.top)
+    
+    // Dessiner l'image avec la transformation
+    val paint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+    paint.isAntiAlias = true
+    paint.isFilterBitmap = true
+    
+    // Clipper le canvas pour ne dessiner que dans les limites du rectangle de recadrage
+    canvas.save()
+    canvas.clipRect(0f, 0f, crop.width, crop.height)
+    canvas.drawBitmap(src, transformMatrix, paint)
+    canvas.restore()
+    
+    result
+}
+
+private fun saveBitmap(bmp: Bitmap, path: String) {
+    FileOutputStream(File(path)).use { bmp.compress(Bitmap.CompressFormat.JPEG, 95, it) }
 }

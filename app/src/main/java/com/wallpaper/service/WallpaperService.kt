@@ -93,8 +93,8 @@ class WallpaperService(private val context: Context) {
     }
     
     /**
-     * Redimensionne un bitmap pour s'adapter à la taille de l'écran
-     * Maintient le ratio d'aspect et centre l'image si nécessaire
+     * Redimensionne un bitmap pour remplir complètement l'écran sans bandes noires
+     * Utilise le scale le plus grand pour couvrir toute la zone, puis recadre au centre si nécessaire
      */
     private fun resizeBitmapToFitScreen(bitmap: Bitmap, targetWidth: Int, targetHeight: Int): Bitmap {
         val bitmapWidth = bitmap.width
@@ -105,7 +105,8 @@ class WallpaperService(private val context: Context) {
             return bitmap
         }
         
-        // Calculer le ratio de mise à l'échelle pour couvrir toute la zone
+        // Calculer le ratio de mise à l'échelle pour couvrir toute la zone (pas de bandes noires)
+        // Utiliser le scale le plus grand garantit que l'image remplira toujours l'écran
         val scaleX = targetWidth.toFloat() / bitmapWidth
         val scaleY = targetHeight.toFloat() / bitmapHeight
         val scale = maxOf(scaleX, scaleY) // Utiliser le plus grand pour couvrir toute la zone

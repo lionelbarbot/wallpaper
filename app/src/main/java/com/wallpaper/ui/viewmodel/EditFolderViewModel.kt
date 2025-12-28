@@ -35,7 +35,8 @@ class EditFolderViewModel(
         recurrenceRule: RecurrenceRule,
         targetScreen: TargetScreen,
         rotationIntervalMinutes: Int? = null,
-        changeOnUnlock: Boolean = false
+        changeOnUnlock: Boolean = false,
+        randomOrder: Boolean = false
     ) {
         viewModelScope.launch {
             val folder = if (folderId != null) {
@@ -45,7 +46,9 @@ class EditFolderViewModel(
                     recurrenceRule = recurrenceRule.toJson(),
                     targetScreen = targetScreen,
                     rotationIntervalMinutes = rotationIntervalMinutes,
-                    changeOnUnlock = changeOnUnlock
+                    changeOnUnlock = changeOnUnlock,
+                    randomOrder = randomOrder
+                    // Préserver isActive - ne pas le modifier ici
                 ) ?: return@launch
             } else {
                 WallpaperFolder(
@@ -54,7 +57,8 @@ class EditFolderViewModel(
                     recurrenceRule = recurrenceRule.toJson(),
                     targetScreen = targetScreen,
                     rotationIntervalMinutes = rotationIntervalMinutes,
-                    changeOnUnlock = changeOnUnlock
+                    changeOnUnlock = changeOnUnlock,
+                    randomOrder = randomOrder
                 )
             }
             
@@ -67,26 +71,23 @@ class EditFolderViewModel(
             
             // Gérer WorkManager si le répertoire est actif et a un intervalle de rotation
             context?.let { ctx ->
-                // Vérifier si le répertoire est actif (mettre à jour les statuts d'abord)
-                folderRepository.updateActiveStatuses()
-                
-                // Récupérer le répertoire sauvegardé avec son statut actif mis à jour
+                // Récupérer le répertoire sauvegardé (avec son statut isActive préservé)
                 val savedFolder = folderRepository.getFolderById(savedFolderId) ?: folder.copy(id = savedFolderId)
-                
-                // Vérifier si le répertoire est actif après mise à jour des statuts
-                val allFolders = folderRepository.getAllFolders().first()
-                val isActive = allFolders.any { it.id == savedFolderId && it.isActive }
                 
                 // Utiliser l'intervalle du répertoire sauvegardé
                 val rotationInterval = savedFolder.rotationIntervalMinutes
                 
-                if (isActive && rotationInterval != null && rotationInterval > 0) {
+                // Ne pas appeler updateActiveStatuses() ici car cela écraserait l'état isActive
+                // défini manuellement par l'utilisateur via le toggle
+                // Vérifier directement si le répertoire est actif
+                if (savedFolder.isActive && rotationInterval != null && rotationInterval > 0) {
                     // Démarrer ou redémarrer WorkManager avec le nouvel intervalle
                     WorkManagerHelper.startWallpaperRotation(ctx, rotationInterval.toLong())
-                } else {
-                    // Arrêter WorkManager si pas d'intervalle ou répertoire non actif
+                } else if (!savedFolder.isActive) {
+                    // Arrêter WorkManager si le répertoire n'est pas actif
                     WorkManagerHelper.stopWallpaperRotation(ctx)
                 }
+                // Si isActive mais pas d'intervalle, ne rien faire (WorkManager reste dans son état actuel)
             }
         }
     }

@@ -45,9 +45,17 @@ class WallpaperFolderRepository(
     
     /**
      * Retourne le répertoire actif actuellement
+     * Priorité : répertoire avec isActive = true (activation manuelle)
+     * Sinon : répertoire dont les règles de récurrence sont actives
      */
     suspend fun getActiveFolder(): WallpaperFolder? {
         val folderList = dao.getAllFolders().first()
+        // D'abord chercher un répertoire activé manuellement
+        val manuallyActive = folderList.firstOrNull { it.isActive }
+        if (manuallyActive != null) {
+            return manuallyActive
+        }
+        // Sinon, chercher selon les règles de récurrence
         return folderList.firstOrNull { folder ->
             val rule = RecurrenceRule.fromJson(folder.recurrenceRule)
             rule != null && recurrenceCalculator.isActive(rule)

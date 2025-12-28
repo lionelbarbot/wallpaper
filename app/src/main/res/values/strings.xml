@@ -59,6 +59,8 @@
     <string name="rotation_interval_hint">Ex: 60 (vide = pas de rotation automatique)</string>
     <string name="change_on_unlock">Changer au déverrouillage</string>
     <string name="change_on_unlock_description">L\'image changera automatiquement lorsque vous déverrouillez l\'appareil</string>
+    <string name="random_order">Ordre aléatoire</string>
+    <string name="random_order_description">Les images seront affichées dans un ordre aléatoire au lieu de l\'ordre séquentiel</string>
     
     <!-- Errors -->
     <string name="error_loading_image">Erreur lors du chargement de l\'image</string>

@@ -56,5 +56,22 @@ class WallpaperImageRepository(
         val nextIndex = (currentIndex + 1) % imageList.size
         return imageList[nextIndex]
     }
+    
+    /**
+     * Récupère une image aléatoire dans un répertoire
+     */
+    suspend fun getRandomImage(folderId: Long, excludeImageId: Long? = null): WallpaperImage? {
+        val imageList = getImagesByFolderId(folderId).first()
+        
+        if (imageList.isEmpty()) return null
+        
+        val filteredList = if (excludeImageId != null && imageList.size > 1) {
+            imageList.filter { it.id != excludeImageId }
+        } else {
+            imageList
+        }
+        
+        return filteredList.randomOrNull()
+    }
 }
 
